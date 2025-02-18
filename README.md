@@ -21,7 +21,7 @@ pip install requests googlesearch-python beautifulsoup4 colorama
 Run the script with:
 
 ```sh
-python script.py
+python3 dod_spending.py
 ```
 
 The script will:
