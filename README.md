@@ -32,6 +32,12 @@ The script will:
 2. Display the found PDF links in a structured and color-coded format.
 3. Save the links to `dod_spending_pdfs.txt`.
 
+This is how it should look:
+
+<img width="1321" alt="Screenshot 2025-02-18 at 2 07 58 PM" src="https://github.com/user-attachments/assets/80454e30-5705-409a-a587-4ef42f1f5ddf" />
+
+Below is a MD example of how it would look:
+
 ## Output Example
 ```
 🔵 FY 2024 DoD Budget PDFs
