@@ -1,4 +1,7 @@
-# DoD Spending PDF Finder
+![image](https://github.com/user-attachments/assets/643ff0a5-1404-43df-a44a-4065ab608483)
+
+
+# DoD Spending (PDF Search for FY's) 
 
 ## Overview
 This Python script searches for publicly available **Department of Defense (DoD) spending PDFs** for **FY 2024 and FY 2025** using Google Search. The script extracts direct PDF links and presents them in a structured, color-coded output for easy readability. It also saves the links to a text file (`dod_spending_pdfs.txt`).
