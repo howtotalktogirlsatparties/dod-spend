@@ -1,0 +1,26 @@
+language: python
+
+python:
+  - "3.8"
+  - "3.9"
+  - "3.10"
+  - "3.11"
+
+cache: pip
+
+install:
+  - pip install requests googlesearch-python beautifulsoup4 colorama argparse
+
+env:
+  - TEST_OUTPUT="test_output.txt"
+
+before_script:
+  - python --version
+  - pip --version
+
+script:
+  - python dod_spending.py --output $TEST_OUTPUT
+  - python dod_spending.py -v --output $TEST_OUTPUT
+  - python dod_spending.py -q "Test Search:DoD test filetype:pdf" --output $TEST_OUTPUT
+  - test -f $TEST_OUTPUT
+  - cat $TEST_OUTPUT
