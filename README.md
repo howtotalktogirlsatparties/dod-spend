@@ -29,27 +29,47 @@ python3 dod_spending.py
 The script will:
 1. Search for DoD spending PDFs for FY 2024 and FY 2025.
 2. Display the found PDF links in a structured and color-coded format.
-3. Save the links to `dod_spending_pdfs.txt`.
 
+## Arugments
+
+Run with defaults:
+```python3
+python3 dod_spending.py
+```
+Custom output file:
+
+```
+python3 dod_spending.py -o results.txt
+```
+
+Verbose mode
+```python3
+python3 dod_spending.py -v
+```
+
+Custom queries
+```python3
+python3 dod_spending.py -q "Custom Search:DoD spending 2023 filetype:pdf" "Another:vendor costs 2024"
+```
 This is how it should look:
 
-<img width="1321" alt="Screenshot 2025-02-18 at 2 07 58 PM" src="https://github.com/user-attachments/assets/80454e30-5705-409a-a587-4ef42f1f5ddf" />
+<img width="1181" alt="Screenshot 2025-02-18 at 4 09 18 PM" src="https://github.com/user-attachments/assets/61229aa7-90c9-400a-ab56-fc1986409743" />
 
-Below is a MD example of how it would look:
+<br>Below is a MD example of how it would look:</br>
 
 ## Output Example
 ```
-🔵 FY 2024 DoD Budget PDFs
+FY 2024 DoD Budget PDFs
 
 [1] https://defense.gov/FY24_Budget.pdf
 [2] https://dod.mil/spending/FY24.pdf
 
-🟢 FY 2025 DoD Budget PDFs
+FY 2025 DoD Budget PDFs
 
 [1] https://defense.gov/FY25_Budget.pdf
 [2] https://dod.mil/spending/FY25.pdf
 
-✅ Search complete! PDF links saved in 'dod_spending_pdfs.txt'
+Search complete! PDF links saved in 'dod_spending_pdfs.txt'
 ```
 
 ## Customization
