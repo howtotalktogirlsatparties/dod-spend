@@ -40,19 +40,33 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install tox
-      run: pip install tox
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip --retries 3
+        pip install requests googlesearch-python beautifulsoup4 colorama argparse --retries 3
 
-    - name: Run tox for Python ${{ matrix.python-version }}
-      run: tox -e py${{ matrix.python-version | replace('.', '') }}
+    - name: Display versions
+      run: |
+        python --version
+        pip --version
+
+    - name: Run default test
+      run: python dod_spending.py --output test_output.txt
+
+    - name: Run verbose test
+      run: python dod_spending.py -v --output test_output.txt
+
+    - name: Run custom query test
+      run: python dod_spending.py -q "Test Search:DoD test filetype:pdf" --output test_output.txt
+
+    - name: Verify output exists
+      run: test -f test_output.txt
 
     - name: Display output
       run: cat test_output.txt
-      if: always()
 
     - name: Archive test output
       uses: actions/upload-artifact@v4
       with:
         name: test-output-${{ matrix.python-version }}
         path: test_output.txt
-      if: always()
