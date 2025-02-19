@@ -14,7 +14,6 @@ from typing import Dict, Set, Optional
 import json
 from pathlib import Path
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -22,7 +21,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger()
 
-# Default queries as a constant (could be moved to a config file)
 DEFAULT_QUERIES = {
     "FY 2024 DoD Budget": "DoD budget FY 2024 spending filetype:pdf site:*.edu | site:*.org | site:*.gov -inurl:(signup | login)",
     "FY 2025 DoD Budget": "DoD budget FY 2025 spending filetype:pdf site:*.edu | site:*.org | site:*.gov -inurl:(signup | login)",
