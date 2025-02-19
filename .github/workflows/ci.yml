@@ -16,10 +16,23 @@ jobs:
         python-version: ["3.8", "3.9", "3.10", "3.11"]
     
     steps:
+    - name: Debug environment before checkout
+      run: |
+        echo "Runner OS: $RUNNER_OS"
+        echo "Git version: $(git --version)"
+        echo "Current directory contents:"
+        ls -la
+
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0 
+        fetch-depth: 0  
+        
+    - name: Debug after checkout
+      run: |
+        echo "Repository contents after checkout:"
+        ls -la
+        git status
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
