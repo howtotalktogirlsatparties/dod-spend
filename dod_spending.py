@@ -95,7 +95,7 @@ class FileHandler:
         if output_format == "json":
             with output_path.open("w", encoding="utf-8") as f:
                 json.dump({title: list(links) for title, links in all_pdf_links.items()}, f, indent=2)
-        else:  # Default to txt
+        else:  
             with output_path.open("w", encoding="utf-8") as f:
                 f.write(f"Search performed on: {time.ctime()}\n\n")
                 for title, links in all_pdf_links.items():
