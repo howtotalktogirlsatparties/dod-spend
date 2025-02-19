@@ -18,6 +18,10 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history to avoid shallow clone issues
+        retry: 3        # Retry on transient failures
+        timeout-minutes: 5  # Increase timeout for checkout
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
