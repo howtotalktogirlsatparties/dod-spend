@@ -1,11 +1,12 @@
-name: CI for DoD Spending
+name: CI for DoD Spending PDF Search
 
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-    
+  workflow_dispatch:
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -16,10 +17,10 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
@@ -50,7 +51,7 @@ jobs:
       run: cat test_output.txt
 
     - name: Archive test output
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: test-output-${{ matrix.python-version }}
         path: test_output.txt
