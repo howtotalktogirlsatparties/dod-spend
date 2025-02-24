@@ -1,4 +1,4 @@
-name: CI for DoD Spending PDF Search
+name: CI for DoD Spending 
 
 on:
   push:
