@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Dict, Set, Optional
 from concurrent.futures import ThreadPoolExecutor
 import threading
+from functools import lru_cache
 
 DEFAULT_QUERIES = {
     "FY 2024 DoD Budget": "DoD budget FY 2024 spending filetype:pdf site:*.edu | site:*.org | site:*.gov -inurl:(signup | login)",
@@ -21,14 +22,13 @@ DEFAULT_QUERIES = {
 
 @dataclass
 class Config:
-    timeout: int = 10
+    timeout: int = 5
     user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-    max_retries: int = 3
-    backoff_factor: float = 1.5
+    max_retries: int = 2
+    backoff_factor: float = 1.0
     retry_status_codes: tuple = (429, 500, 502, 503, 504)
-    search_results_limit: int = 15
-    sleep_interval: float = 0.5
-    max_workers: int = 5
+    search_results_limit: int = 10
+    max_workers: int = 10
 
 class SessionManager:
     def __init__(self, config: Config):
@@ -48,6 +48,7 @@ class PDFSearcher:
         self.session = session
         self.config = config
         self.lock = threading.Lock()
+        self.cache = set()
 
     def find_pdf_links(self, query: str, verbose: bool = False) -> Set[str]:
         pdf_links = set()
@@ -64,13 +65,15 @@ class PDFSearcher:
         return pdf_links
 
     def _process_url(self, url: str, pdf_links: Set[str], verbose: bool) -> None:
+        if url in self.cache:
+            return
         try:
             if url.endswith(".pdf"):
                 self._check_direct_pdf(url, pdf_links, verbose)
             else:
                 self._scrape_page_for_pdfs(url, pdf_links, verbose)
         finally:
-            time.sleep(self.config.sleep_interval)
+            self.cache.add(url)
 
     def _check_direct_pdf(self, url: str, pdf_links: Set[str], verbose: bool) -> None:
         try:
@@ -93,9 +96,8 @@ class PDFSearcher:
             
             with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
                 executor.map(lambda pdf_url: self._check_direct_pdf(pdf_url, pdf_links, verbose), pdf_urls)
-        except (requests.RequestException, ValueError) as e:
-            if verbose:
-                logging.debug(f"Skipping {url}: {str(e)}")
+        except (requests.RequestException, ValueError):
+            pass
 
 class FileHandler:
     @staticmethod
