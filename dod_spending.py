@@ -9,26 +9,27 @@ import logging
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 from dataclasses import dataclass
-from typing import Dict, Set, Optional
+from typing import Dict, Set
 from concurrent.futures import ThreadPoolExecutor
 import threading
 import csv
+from pathlib import Path
 
 DEFAULT_QUERIES = {
-    "FY 2024 DoD Budget": "DoD budget FY 2024 spending filetype:pdf site:*.edu | site:*.org | site:*.gov -inurl:(signup | login)",
-    "FY 2025 DoD Budget": "DoD budget FY 2025 spending filetype:pdf site:*.edu | site:*.org | site:*.gov -inurl:(signup | login)",
-    "FY 2024/2025 DoD Vendor Spending": "DoD vendor spending FY 2024 OR FY 2025 filetype:pdf site:*.edu | site:*.org | site:*.gov -inurl:(signup | login)"
+    "FY 2024 DoD Budget": "DoD budget FY 2024 spending cur filetype:pdf site:*.edu | site:*.org | site:*.gov -inurl:(signup | login)",
+    "FY 2025 DoD Budget": "DoD budget FY 2025 spending cur filetype:pdf site:*.edu | site:*.org | site:*.gov -inurl:(signup | login)",
+    "FY 2024/2025 DoD Vendor Spending": "DoD vendor spending FY 2024 OR FY 2025 cur filetype:pdf site:*.edu | site:*.org | site:*.gov -inurl:(signup | login)"
 }
 
 @dataclass
 class Config:
     timeout: int = 5
-    user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-    max_retries: int = 2
-    backoff_factor: float = 1.0
+    user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    max_retries: int = 3
+    backoff_factor: float = 1.5
     retry_status_codes: tuple = (429, 500, 502, 503, 504)
-    search_results_limit: int = 10
-    max_workers: int = 10
+    search_results_limit: int = 15
+    max_workers: int = 8
 
 class SessionManager:
     def __init__(self, config: Config):
@@ -37,7 +38,8 @@ class SessionManager:
         retry_strategy = Retry(
             total=config.max_retries,
             backoff_factor=config.backoff_factor,
-            status_forcelist=config.retry_status_codes
+            status_forcelist=config.retry_status_codes,
+            allowed_methods=["HEAD", "GET"]
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
         self.session.mount("http://", adapter)
@@ -59,28 +61,31 @@ class PDFSearcher:
             with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
                 executor.map(lambda url: self._process_url(url, pdf_links, verbose), search_results)
         except Exception as e:
-            logging.error(f"Search failed: {str(e)}")
+            logging.error(f"Search failed for '{query}': {e}")
         return pdf_links
 
     def _process_url(self, url: str, pdf_links: Set[str], verbose: bool) -> None:
-        if url in self.cache:
-            return
+        with self.lock:
+            if url in self.cache:
+                return
+            self.cache.add(url)
         try:
             if url.endswith(".pdf"):
                 self._check_direct_pdf(url, pdf_links, verbose)
             else:
                 self._scrape_page_for_pdfs(url, pdf_links, verbose)
-        finally:
-            self.cache.add(url)
+        except Exception as e:
+            if verbose:
+                logging.debug(f"Error processing {url}: {e}")
 
     def _check_direct_pdf(self, url: str, pdf_links: Set[str], verbose: bool) -> None:
         try:
             response = self.session.head(url, timeout=self.config.timeout, allow_redirects=True)
-            if response.status_code == 200:
+            if response.status_code == 200 and "application/pdf" in response.headers.get("Content-Type", ""):
                 with self.lock:
                     pdf_links.add(url)
                 if verbose:
-                    logging.debug(f"Found: {url}")
+                    logging.debug(f"Found PDF: {url}")
         except requests.RequestException:
             pass
 
@@ -89,18 +94,18 @@ class PDFSearcher:
             response = self.session.get(url, timeout=self.config.timeout)
             response.raise_for_status()
             soup = BeautifulSoup(response.text, "html.parser")
-            pdf_urls = [urljoin(url, link["href"]) for link in soup.find_all("a", href=True) 
-                       if link["href"].endswith(".pdf")]
+            pdf_urls = {urljoin(url, link["href"]) for link in soup.find_all("a", href=True) 
+                       if link["href"].endswith(".pdf")}
             with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
                 executor.map(lambda pdf_url: self._check_direct_pdf(pdf_url, pdf_links, verbose), pdf_urls)
-        except (requests.RequestException, ValueError):
+        except requests.RequestException:
             pass
 
 class FileHandler:
     @staticmethod
     def save_results(filename: str, search_results: Dict[str, Set[str]]) -> None:
         try:
-            with open(filename, "w", newline="", encoding="utf-8") as f:
+            with Path(filename).open("w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
                 writer.writerow(["Search Performed On", time.ctime()])
                 writer.writerow([])
@@ -114,7 +119,7 @@ class FileHandler:
                 writer.writerow(["Total PDFs Found", total_pdfs])
             logging.info(f"Results saved to {filename}")
         except IOError as e:
-            logging.error(f"Failed to save results: {str(e)}")
+            logging.error(f"Failed to save results to {filename}: {e}")
 
 class SearchApplication:
     def __init__(self):
@@ -130,16 +135,17 @@ class SearchApplication:
 
     def _parse_args(self) -> argparse.Namespace:
         parser = argparse.ArgumentParser(description="Search for DoD spending PDFs")
-        parser.add_argument("-o", "--output", default=None, help="Output file name")
-        parser.add_argument("-v", "--verbose", action="store_true", help="Show detailed progress")
-        parser.add_argument("-q", "--queries", nargs="*", help="Custom queries as 'Title:query'")
+        parser.add_argument("-o", "--output", type=str, default=None)
+        parser.add_argument("-v", "--verbose", action="store_true")
+        parser.add_argument("-q", "--queries", nargs="*", type=str)
         return parser.parse_args()
 
     def _setup_logging(self, verbose: bool) -> None:
         logging.basicConfig(
             level=logging.DEBUG if verbose else logging.INFO,
             format="%(asctime)s [%(levelname)s] %(message)s",
-            handlers=[logging.StreamHandler(sys.stdout)]
+            handlers=[logging.StreamHandler(sys.stdout)],
+            force=True
         )
 
     def _get_queries(self, args: argparse.Namespace) -> Dict[str, str]:
@@ -151,7 +157,7 @@ class SearchApplication:
                 title, query = q.split(":", 1)
                 queries[title.strip()] = query.strip()
             except ValueError:
-                logging.error(f"Invalid query format: {q}. Use 'Title:query'")
+                logging.error(f"Invalid query format: {q}. Expected 'Title:query'")
                 sys.exit(1)
         return queries
 
@@ -159,10 +165,8 @@ class SearchApplication:
         queries = self._get_queries(args)
         search_results = {}
         with ThreadPoolExecutor(max_workers=min(len(queries), self.config.max_workers)) as executor:
-            future_to_title = {
-                executor.submit(self.searcher.find_pdf_links, query, args.verbose): title 
-                for title, query in queries.items()
-            }
+            future_to_title = {executor.submit(self.searcher.find_pdf_links, query, args.verbose): title 
+                              for title, query in queries.items()}
             for future in future_to_title:
                 title = future_to_title[future]
                 logging.info(f"{title}")
@@ -174,12 +178,12 @@ class SearchApplication:
                     if not pdf_links:
                         logging.info("No PDFs found")
                 except Exception as e:
-                    logging.error(f"Failed to process {title}: {str(e)}")
+                    logging.error(f"Failed to process {title}: {e}")
         return search_results
 
-    def _save_results(self, output: Optional[str], search_results: Dict[str, Set[str]]) -> None:
+    def _save_results(self, output: str | None, search_results: Dict[str, Set[str]]) -> None:
         timestamp = time.strftime("%Y%m%d_%H%M%S")
-        filename = output or f"dod_spending_pdfs_{timestamp}.csv"
+        filename = output if output else f"dod_spending_pdfs_{timestamp}.csv"
         FileHandler.save_results(filename, search_results)
 
 if __name__ == "__main__":
