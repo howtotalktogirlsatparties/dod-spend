@@ -9,7 +9,7 @@ import logging
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 from dataclasses import dataclass
-from typing import Dict, Set
+from typing import Dict, Set, Optional
 from concurrent.futures import ThreadPoolExecutor
 import threading
 import csv
@@ -181,7 +181,7 @@ class SearchApplication:
                     logging.error(f"Failed to process {title}: {e}")
         return search_results
 
-    def _save_results(self, output: str | None, search_results: Dict[str, Set[str]]) -> None:
+    def _save_results(self, output: Optional[str], search_results: Dict[str, Set[str]]) -> None:
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         filename = output if output else f"dod_spending_pdfs_{timestamp}.csv"
         FileHandler.save_results(filename, search_results)
